@@ -1,37 +1,21 @@
 <?php
 session_start();
-require_once 'products.php'; // File chứa danh sách sản phẩm
 
 if (isset($_GET['vnp_ResponseCode']) && $_GET['vnp_ResponseCode'] === '00') {
     echo "<h2>✅ Thanh toán thành công!</h2>";
 
-    // Hiển thị thông tin đơn hàng nếu có giỏ hàng
-    if (isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
-        $cart = $_SESSION['cart'];
-        $total = 0;
-
-        echo "<h3>Chi tiết đơn hàng:</h3>";
-
-        foreach ($cart as $id => $qty) {
-            if (isset($products[$id])) {
-                $item = $products[$id];
-                $subtotal = $item['price'] * $qty;
-                $total += $subtotal;
-                echo "{$item['name']} - SL: $qty - Tổng: " . number_format($subtotal) . " VND<br>";
-            }
-        }
-
-        echo "<br><strong>Tổng đơn hàng: " . number_format($total) . " VND</strong>";
-
-        // Sau khi hiển thị, xóa giỏ hàng
-        unset($_SESSION['cart']);
+    if (!empty($_SESSION['last_order'])) {
+        $order = $_SESSION['last_order'];
+        echo "<p>Mã đơn hàng: <strong>#" . htmlspecialchars($order['code']) . "</strong></p>";
+        echo "<p>Tổng tiền: <strong>" . number_format($order['amount']) . " VND</strong></p>";
+        echo "<p>Thời gian đặt: " . $order['created_at'] . "</p>";
     } else {
-        echo "<p>Không có sản phẩm nào trong giỏ hàng.</p>";
+        echo "<p>Không tìm thấy thông tin đơn hàng trong session.</p>";
     }
+
+    unset($_SESSION['cart']); // Phòng trường hợp chưa unset
 } else {
     echo "<h2>❌ Thanh toán thất bại hoặc bị hủy.</h2>";
 }
 ?>
-
-<br><br>
-<a href="index.php">← Quay lại mua hàng</a>
+<br><a href="index.php">← Quay lại mua hàng</a>

@@ -1,49 +1,91 @@
 <?php
 session_start();
-include 'products.php';
+require_once 'products.php';
 
 $cart = $_SESSION['cart'] ?? [];
-
-// Xử lý xóa sản phẩm nếu có ?remove=ID
-if (isset($_GET['remove'])) {
-    $removeId = (int)$_GET['remove'];
-    unset($_SESSION['cart'][$removeId]);
-    header("Location: cart.php");
-    exit;
-}
+$total = 0;
 ?>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Giỏ hàng</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/style.css">
+    <script>
+        function confirmDelete() {
+            return confirm("Bạn có chắc chắn muốn xoá sản phẩm này?");
+        }
 
-<h2>Giỏ hàng</h2>
-<?php if (empty($cart)): ?>
-    <p>Giỏ hàng trống.</p>
-<?php else: ?>
-    <form action="vnpay_create_payment.php" method="post">
-    <table border="1" cellpadding="10">
-        <tr><th>Sản phẩm</th><th>Số lượng</th><th>Giá</th><th>Thao tác</th></tr>
-        <?php 
-        $total = 0;
-        foreach ($cart as $id => $qty): 
-            $item = $products[$id];
-            $subtotal = $item['price'] * $qty;
-            $total += $subtotal;
-        ?>
-            <tr>
-                <td><?= htmlspecialchars($item['name']) ?></td>
-                <td><?= $qty ?></td>
-                <td><?= number_format($subtotal) ?> VND</td>
-                <td><a href="cart.php?remove=<?= $id ?>" onclick="return confirm('Xóa sản phẩm này?')">Xóa</a></td>
-            </tr>
-        <?php endforeach; ?>
-        <tr>
-            <td colspan="3"><strong>Tổng cộng:</strong></td>
-            <td><strong><?= number_format($total) ?> VND</strong></td>
-        </tr>
-    </table>
-    <input type="hidden" name="amount" value="<?= $total ?>">
-    <br>
-    <button type="submit">Thanh toán bằng VNPAY (QR)</button>
-    </form>
-<?php endif; ?>
+        function confirmCheckout() {
+            return confirm("Xác nhận đặt hàng?");
+        }
+    </script>
+</head>
+<body class="container py-4">
+    <h1 class="mb-4">🛒 Giỏ hàng</h1>
 
-<br>
-<a href="index.php">← Quay lại mua hàng</a>
+    <?php if (empty($cart)): ?>
+        <div class="alert alert-warning">Giỏ hàng đang trống.</div>
+    <?php else: ?>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Sản phẩm</th>
+                    <th>Số lượng</th>
+                    <th>Đơn giá</th>
+                    <th>Thành tiền</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($cart as $id => $qty): 
+                    if (!isset($products[$id])) continue; // Tránh lỗi nếu ID không hợp lệ
+                    $product = $products[$id];
+                    $subtotal = $product['price'] * $qty;
+                    $total += $subtotal;
+                ?>
+                    <tr>
+                        <td><?= htmlspecialchars($product['name']) ?></td>
+                        <td><?= (int) $qty ?></td>
+                        <td><?= number_format($product['price']) ?> VNĐ</td>
+                        <td><?= number_format($subtotal) ?> VNĐ</td>
+                        <td>
+                            <a href="remove_from_cart.php?id=<?= urlencode($id) ?>" class="btn btn-danger btn-sm" onclick="return confirmDelete()">
+                                <i class="bi bi-trash"></i> Xoá
+                            </a>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+
+        <h4 class="mt-3">Tổng cộng: <strong><?= number_format($total) ?> VNĐ</strong></h4>
+
+        <form action="checkout.php" method="POST" onsubmit="return confirmCheckout()" class="mt-3">
+            <input type="hidden" name="amount" value="<?= htmlspecialchars($total) ?>">
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Chọn cổng thanh toán:</label><br>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="gateway" value="momo" id="payMomo" checked>
+                    <label class="form-check-label" for="payMomo">MoMo</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="gateway" value="vnpay" id="payVnpay">
+                    <label class="form-check-label" for="payVnpay">VNPay</label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-credit-card"></i> Thanh toán
+            </button>
+        </form>
+    <?php endif; ?>
+
+    <div class="mt-4">
+        <a href="index.php" class="btn btn-secondary">← Tiếp tục mua hàng</a>
+    </div>
+</body>
+</html>
