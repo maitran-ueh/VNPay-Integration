@@ -12,7 +12,7 @@ $options = [
 
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
-} catch (\PDOException $e) {
+} catch (PDOException $e) {
     die("Kết nối thất bại: " . $e->getMessage());
 }
 ?>

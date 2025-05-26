@@ -1,43 +1,67 @@
 <?php
 session_start();
-require_once "vnpay_config.php";
+require_once("vnpay_config.php");
+require_once("products.php");
 
-if (empty($_SESSION['last_order']['amount']) || empty($_SESSION['last_order']['code'])) {
-    die("Không tìm thấy thông tin đơn hàng.");
+// 1. Kiểm tra giỏ hàng
+$cart = $_SESSION['cart'] ?? [];
+if (empty($cart)) {
+    die("Giỏ hàng trống.");
 }
 
-$amount = (int) $_SESSION['last_order']['amount'];
-if ($amount <= 0) die("Số tiền không hợp lệ.");
+// 2. Tính tổng tiền từ session (không dùng $_POST)
+$total = 0;
+foreach ($cart as $id => $qty) {
+    if (isset($products[$id])) {
+        $total += $products[$id]['price'] * $qty;
+    }
+}
+
+if ($total <= 0) {
+    die("Tổng tiền không hợp lệ.");
+}
 
 date_default_timezone_set('Asia/Ho_Chi_Minh');
 
-// Thiết lập thông tin thanh toán
-$vnp_TxnRef = time();
-$vnp_OrderInfo = "Thanh toán đơn hàng #" . $_SESSION['last_order']['code'];
-$vnp_Amount = $amount * 100;
+// 3. Thiết lập tham số thanh toán
+$vnp_TxnRef = uniqid(); // Sử dụng ID duy nhất tránh trùng
+$vnp_OrderInfo = "Thanh toán giỏ hàng";
+$vnp_OrderType = "billpayment";
+$vnp_Amount = $total * 100;
+$vnp_Locale = "vn";
+$vnp_IpAddr = $_SERVER['REMOTE_ADDR'];
 
-$inputData = [
-    "vnp_Version" => "2.1.0",
-    "vnp_TmnCode" => $vnp_TmnCode,
-    "vnp_Amount" => $vnp_Amount,
-    "vnp_Command" => "pay",
+$inputData = array(
+    "vnp_Version"    => "2.1.0",
+    "vnp_TmnCode"    => $vnp_TmnCode,
+    "vnp_Amount"     => $vnp_Amount,
+    "vnp_Command"    => "pay",
     "vnp_CreateDate" => date('YmdHis'),
-    "vnp_CurrCode" => "VND",
-    "vnp_IpAddr" => $_SERVER['REMOTE_ADDR'],
-    "vnp_Locale" => "vn",
-    "vnp_OrderInfo" => $vnp_OrderInfo,
-    "vnp_OrderType" => "billpayment",
-    "vnp_ReturnUrl" => $vnp_Returnurl,
-    "vnp_TxnRef" => $vnp_TxnRef
-];
+    "vnp_CurrCode"   => "VND",
+    "vnp_IpAddr"     => $vnp_IpAddr,
+    "vnp_Locale"     => $vnp_Locale,
+    "vnp_OrderInfo"  => $vnp_OrderInfo,
+    "vnp_OrderType"  => $vnp_OrderType,
+    "vnp_ReturnUrl"  => $vnp_Returnurl,
+    "vnp_TxnRef"     => $vnp_TxnRef
+);
 
-// Sắp xếp và tạo hash
+// 4. Tạo query và hash
 ksort($inputData);
-$query = http_build_query($inputData);
-$hashData = urldecode($query);
-$vnpSecureHash = hash_hmac('sha512', $hashData, $vnp_HashSecret);
+$query = '';
+$hashdata = '';
 
-// Tạo URL thanh toán
-$vnp_Url .= '?' . $query . '&vnp_SecureHash=' . $vnpSecureHash;
-header("Location: $vnp_Url");
+foreach ($inputData as $key => $value) {
+    $query .= urlencode($key) . '=' . urlencode($value) . '&';
+    $hashdata .= urlencode($key) . '=' . urlencode($value) . '&';
+}
+
+$hashdata = rtrim($hashdata, '&');
+$query = rtrim($query, '&');
+
+$vnpSecureHash = hash_hmac('sha512', $hashdata, $vnp_HashSecret);
+$vnp_Url = $vnp_Url . "?" . $query . "&vnp_SecureHash=" . $vnpSecureHash;
+
+// 5. Chuyển hướng đến VNPAY
+header("Location: " . $vnp_Url);
 exit;
